@@ -66,10 +66,33 @@ To check the database and then send a prompt:
 python main.py --prompt "Say hello in one sentence."
 ```
 
-Running without `--prompt` only checks MySQL. The model request uses the official
+Running without either input option only checks MySQL. The model request uses the official
 OpenAI SDK's [Responses API](https://developers.openai.com/api/reference/python)
 and returns its text output. Each call is an independent prompt; conversation
 history and database tools are not attached to the model yet.
+
+Alternatively, collect one question from the terminal:
+
+```sh
+python main.py --interactive
+```
+
+`--prompt` and `--interactive` are mutually exclusive. Both currently run the
+provider smoke test; the SQL workflow is scaffolded but not connected to the CLI
+until SQL generation and execution are implemented. Interactive mode reads one
+line. EOF exits without a request; Ctrl-C exits with status 130.
+
+The CLI validates input before database access or client creation. Input must
+be text, contain something besides whitespace, and be at most 2,000 characters
+including surrounding whitespace. Terminal control characters and invalid Unicode
+surrogates are rejected; tabs, line breaks, normal punctuation, and Unicode text
+are preserved. Only surrounding whitespace is removed. The connector applies the
+same checks to direct Python calls before making a model request.
+
+This character cap limits input size, not an exact token budget. Validation does
+not classify relevance or claim to detect prompt injection. User text remains
+in the Responses API's `input`, separate from future trusted application
+instructions, following the [OpenAI prompt-injection guidance](https://developers.openai.com/api/docs/guides/agent-builder-safety).
 
 To use the provider directly, load the environment before calling the factory:
 
@@ -82,6 +105,33 @@ load_dotenv(Path(".env"))
 with create_model_connector() as connector:
     print(connector.generate_response("Say hello."))
 ```
+
+## Implementation roadmap
+
+1. **Input and flow (implemented):** CLI input, shared local validation, and the
+   `ModelConnector.process_request()` template method. The template calls abstract
+   hooks in order: generate SQL, validate SQL, execute SQL, prepare results, and
+   generate an answer. Denials and clarification requests return early; zero
+   rows return a fixed message without an answer-generation call. Stage failures
+   propagate to the caller.
+2. **SQL generation:** Agree on schema context and trusted instructions, then
+   implement structured query/deny/clarify outcomes. Keep user text separate from
+   instructions and constrain unrelated requests and prompt-injection attempts.
+3. **SQL validation and execution:** Parse and restrict generated SQL, use the
+   existing read-only `mcp` user, and enforce query deadlines, row limits, and
+   result-size limits. Add bounded error recovery and clear failure messages.
+4. **Results and answers:** Serialize database values, preserve truncation
+   metadata, and implement grounded plain-English answers. Add model output and
+   retry budgets, usage tracking, and end-to-end cases for errors and no data.
+
+The OpenAI SQL hooks currently raise `NotImplementedError` before an API request
+or SQL execution. This deliberately prevents the incomplete workflow from
+treating ordinary model output as executable SQL. The existing
+`generate_response()` provider test remains available.
+
+Sensitive-data filtering and per-user authorization are out of scope for this
+class prototype, which uses junk development data. The read-only database account
+does not enforce additional per-user data-access restrictions.
 
 Run connector tests without a running database or API requests:
 

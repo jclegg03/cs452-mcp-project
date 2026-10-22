@@ -8,12 +8,36 @@ from openai import OpenAIError
 
 from db import DatabaseConnector
 from model_provider import create_model_connector
+from user_input import InputValidationError, validate_user_input
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Check MySQL and query the configured model.")
-    parser.add_argument("--prompt", help="Send a prompt to the configured model provider.")
+    inputs = parser.add_mutually_exclusive_group()
+    inputs.add_argument("--prompt", help="Send a prompt to the configured model provider.")
+    inputs.add_argument(
+        "--interactive", action="store_true", help="Read one prompt from the terminal."
+    )
     args = parser.parse_args(argv)
+
+    # Validate before loading credentials, opening MySQL, or creating a client.
+    prompt = args.prompt
+    if args.interactive:
+        try:
+            prompt = input("Enter your question: ")
+        except EOFError:
+            print("No input received.")
+            return 0
+        except KeyboardInterrupt:
+            print("\nRequest cancelled.")
+            return 130
+    if prompt is not None:
+        try:
+            prompt = validate_user_input(prompt)
+        except InputValidationError as exc:
+            print(f"Invalid input: {exc}")
+            return 1
+
     load_dotenv(Path(__file__).with_name(".env"))
     database_url = os.getenv("DATABASE_URL")
     if not database_url:
@@ -32,10 +56,10 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Database connection failed: {exc}")
         return 1
 
-    if args.prompt is not None:
+    if prompt is not None:
         try:
             with create_model_connector() as connector:
-                print(connector.generate_response(args.prompt))
+                print(connector.generate_response(prompt))
         except (ValueError, RuntimeError, OpenAIError) as exc:
             print(f"Model request failed: {exc}")
             return 1
