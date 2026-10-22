@@ -38,6 +38,7 @@ class DatabaseConnector:
             "charset": "utf8mb4",
             "connection_timeout": 5,
             "autocommit": False,
+            "time_zone": "+00:00",
         }
         self._connection = None
 

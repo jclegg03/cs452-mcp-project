@@ -2,8 +2,12 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from user_input import validate_user_input
+
+if TYPE_CHECKING:
+    from sql_context import SQLContext
 
 
 class RequestDeniedError(ValueError):
@@ -22,6 +26,14 @@ class QueryResult:
     truncated: bool = False
 
 
+@dataclass(frozen=True)
+class SQLQuery:
+    """A proposed statement and separately bound values; not yet validated."""
+
+    sql: str
+    parameters: tuple[str | int | float | bool | None, ...] = ()
+
+
 class ModelConnector(ABC):
     def __init__(self, api_key: str):
         if not api_key or not api_key.strip():
@@ -32,12 +44,12 @@ class ModelConnector(ABC):
         """Provider smoke test: validate input before making a model request."""
         return self._generate_response(validate_user_input(prompt))
 
-    def process_request(self, user_input: str, context: str = "") -> str:
+    def process_request(self, user_input: str, context: "SQLContext | None" = None) -> str:
         """Template method for the database-question workflow.
 
         Subclasses implement the individual stages, not their ordering. SQL
-        generation, validation, execution and explanation are future milestones.
-        Failures propagate to the caller; no query is retried automatically.
+        Validation, execution and explanation are future milestones. Failures
+        propagate to the caller; no query is retried automatically.
         """
         question = validate_user_input(user_input)
         try:
@@ -58,17 +70,17 @@ class ModelConnector(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def generate_sql(self, question: str, context: str) -> str:
+    def generate_sql(self, question: str, context: "SQLContext | None" = None) -> SQLQuery:
         """Propose SQL, or raise a denial or clarification exception."""
         raise NotImplementedError
 
     @abstractmethod
-    def validate_sql(self, sql: str) -> None:
+    def validate_sql(self, sql: SQLQuery) -> None:
         """Enforce query rules before any SQL execution."""
         raise NotImplementedError
 
     @abstractmethod
-    def execute_sql(self, sql: str) -> QueryResult:
+    def execute_sql(self, sql: SQLQuery) -> QueryResult:
         """Delegate execution to the database with resource limits."""
         raise NotImplementedError
 

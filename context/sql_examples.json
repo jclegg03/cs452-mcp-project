@@ -1,0 +1,58 @@
+[
+  {
+    "id": "team_submission_count",
+    "question": "How many surveys has team TEAM-X submitted?",
+    "interpretation": "Conditional example: sum all five submission counters for active, non-deactivated team members. This is a per-team compliance metric, not a count of Survey rows.",
+    "requires_confirmation": [
+      "team_submission_metric",
+      "athlete_population"
+    ],
+    "sql": "SELECT t.TeamID,\n       COALESCE(SUM(CASE WHEN c.IsActive = 1 AND a.Deactivated IS NULL\n         THEN c.NumDailySubmitted + c.NumWeeklySubmitted + c.NumMonthlySubmitted\n              + c.BackgroundSubmitted + c.FinalSubmitted\n         ELSE 0 END), 0) AS SurveyCount\nFROM Team AS t\nLEFT JOIN Compliance AS c ON c.TeamID = t.TeamID\nLEFT JOIN Athlete AS a ON a.AthleteID = c.AthleteID\nWHERE t.TeamID = %s\nGROUP BY t.TeamID",
+    "parameters": [
+      "TEAM-X"
+    ]
+  },
+  {
+    "id": "team_athlete_count",
+    "question": "How many athletes are enrolled in team TEAM-X?",
+    "interpretation": "Conditional example: active Compliance membership and Athlete.Deactivated IS NULL.",
+    "requires_confirmation": [
+      "athlete_population"
+    ],
+    "sql": "SELECT t.TeamID,\n       COUNT(DISTINCT CASE WHEN c.IsActive = 1 AND a.Deactivated IS NULL\n         THEN a.AthleteID END) AS AthleteCount\nFROM Team AS t\nLEFT JOIN Compliance AS c ON c.TeamID = t.TeamID\nLEFT JOIN Athlete AS a ON a.AthleteID = c.AthleteID\nWHERE t.TeamID = %s\nGROUP BY t.TeamID",
+    "parameters": [
+      "TEAM-X"
+    ]
+  },
+  {
+    "id": "recent_submission_count",
+    "question": "How many surveys have been submitted in the last 7 days?",
+    "interpretation": "All Survey rows in [reference minus 168 hours, reference); no membership or deactivation filter.",
+    "requires_confirmation": [],
+    "sql": "SELECT COUNT(*) AS SurveyCount\nFROM Survey\nWHERE SubmissionDate >= %s AND SubmissionDate < %s",
+    "parameters": [
+      "$seven_days_ago",
+      "$as_of"
+    ]
+  },
+  {
+    "id": "most_submissions",
+    "question": "Who has submitted the most surveys?",
+    "interpretation": "All-time counts of Survey rows for active, non-deactivated athletes; return AthleteID and all positive-count ties. Conditional on the population rule.",
+    "requires_confirmation": [
+      "athlete_population"
+    ],
+    "sql": "WITH counts AS (\n  SELECT a.AthleteID, COUNT(s.SurveyID) AS SurveyCount\n  FROM Athlete AS a\n  LEFT JOIN Survey AS s ON s.AthleteID = a.AthleteID\n  WHERE a.Deactivated IS NULL\n    AND EXISTS (SELECT 1 FROM Compliance AS c\n                WHERE c.AthleteID = a.AthleteID AND c.IsActive = 1)\n  GROUP BY a.AthleteID\n)\nSELECT AthleteID, SurveyCount\nFROM counts\nWHERE SurveyCount > 0 AND SurveyCount = (SELECT MAX(SurveyCount) FROM counts)\nORDER BY AthleteID\nLIMIT 100",
+    "parameters": []
+  },
+  {
+    "id": "no_submissions",
+    "question": "Who hasn't submitted any surveys?",
+    "interpretation": "Active, non-deactivated athletes with no Survey rows at any time. Conditional on the population rule.",
+    "requires_confirmation": [
+      "athlete_population"
+    ],
+    "sql": "SELECT a.AthleteID\nFROM Athlete AS a\nWHERE a.Deactivated IS NULL\n  AND EXISTS (SELECT 1 FROM Compliance AS c\n              WHERE c.AthleteID = a.AthleteID AND c.IsActive = 1)\n  AND NOT EXISTS (SELECT 1 FROM Survey AS s WHERE s.AthleteID = a.AthleteID)\nORDER BY a.AthleteID\nLIMIT 100",
+    "parameters": []
+  }
+]

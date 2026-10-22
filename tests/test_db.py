@@ -16,6 +16,7 @@ class DatabaseConnectorTests(unittest.TestCase):
         self.assertEqual(config["host"], "localhost")
         self.assertEqual(config["database"], "syp_dev")
         self.assertEqual(config["port"], 3306)
+        self.assertEqual(config["time_zone"], "+00:00")
 
     @patch("db.mysql.connector.connect")
     def test_custom_port(self, connect):

@@ -43,6 +43,8 @@ with DatabaseConnector(database_url) as connection:
 
 Use parameterized queries for values. Writes require `connection.commit()`;
 closing the context releases the connection and discards uncommitted changes.
+Every connection uses the `+00:00` session timezone, matching the confirmed UTC
+convention of the source application.
 The driver options follow the [MySQL Connector/Python documentation](https://dev.mysql.com/doc/connector-python/en/connector-python-connectargs.html).
 
 ## OpenAI provider
@@ -77,10 +79,9 @@ Alternatively, collect one question from the terminal:
 python main.py --interactive
 ```
 
-`--prompt` and `--interactive` are mutually exclusive. Both currently run the
-provider smoke test; the SQL workflow is scaffolded but not connected to the CLI
-until SQL generation and execution are implemented. Interactive mode reads one
-line. EOF exits without a request; Ctrl-C exits with status 130.
+`--prompt` and `--interactive` are mutually exclusive. Both run the provider
+smoke test unless combined with `--generate-sql`, described below. Interactive
+mode reads one line. EOF exits without a request; Ctrl-C exits with status 130.
 
 The CLI validates input before database access or client creation. Input must
 be text, contain something besides whitespace, and be at most 2,000 characters
@@ -121,6 +122,96 @@ with create_model_connector() as connector:
     print(connector.generate_response("Say hello."))
 ```
 
+## SQL generation and saved context
+
+Propose a query without executing it:
+
+```sh
+python main.py --generate-sql --prompt "How many surveys have been submitted in the last 7 days?"
+```
+
+Add `--as-of 2026-10-22T00:00:00+00:00` for a fixed reference time, or combine
+`--generate-sql` with `--interactive`. Generation uses the saved context and does
+not open MySQL. Its JSON output contains the proposed SQL, separately bound
+parameter values, `executed: false`, and API usage including cached input tokens.
+Query, deny, and clarify are separate structured decisions. Incomplete model
+responses, API refusals, and malformed output are handled without executing SQL.
+The SQL proposal has not passed the future query validator.
+
+The checked-in files serve different purposes:
+
+| File | Purpose |
+| --- | --- |
+| `context/schema.json` | `SHOW TABLES` and stable `SHOW CREATE TABLE` definitions. |
+| `context/domain_rules.yaml` | UTC conventions, metric definitions, and unresolved questions. |
+| `context/sql_examples.json` | Five question-to-SQL examples, parameters, and explicit interpretations. |
+| `prompts/sql_generation.txt` | Query rules, instruction boundaries, and output requirements. |
+| `tests/fixtures/survey_data.sql` | Synthetic test data; a portable subset of the real schema. |
+| `tests/fixtures/query_cases.json` | Fixed reference time and expected results, excluded from prompts. |
+| `tests/fixtures/generation_eval_cases.json` | Model-evaluation cases, including all-time versus seven-day counts; excluded from prompts. |
+
+Refresh the complete schema explicitly after database migrations or changing
+the configured database:
+
+```sh
+python schema_context.py
+```
+
+The snapshot currently has 13 application tables, `_prisma_migrations`, and the
+`teamcompliancesummary` view. The `mcp` account cannot read that view's complete
+definition. Its visible columns and the permission limitation are recorded; the
+SQL prompt excludes it rather than guessing its logic. All available definitions
+are included in the prompt. Table names are sorted and the changing table-level
+`AUTO_INCREMENT=<counter>` option is removed while the column attribute remains.
+Schema comments, constraints, indexes, and other definition text are preserved.
+Refresh uses a temporary file and replaces the previous snapshot after collection
+succeeds. No schema/data changes are made in MySQL.
+
+The UTC convention is confirmed. Two domain choices are still unconfirmed:
+whether team submissions mean Compliance counters or Survey rows for current
+members, and whether the athlete population excludes inactive/deactivated people.
+The conditional examples demonstrate the counters/active-population interpretation
+and label it explicitly. Until those choices are confirmed in the rules file or
+specified in the user's question, the model is instructed to ask for clarification.
+Survey has no TeamID, so per-team Compliance totals must not be presented as
+equivalent to Survey row counts. Athlete names/emails are also absent; "who"
+can return AthleteID, not invented names.
+
+`sql_context.py` loads the static context once per process and builds a stable
+prefix from instructions, full schema, domain rules, and examples. A SHA-256
+content hash supplies a stable `prompt_cache_key`. The question and reference
+time follow that prefix in a user message; only the question goes through the
+SQL-smuggling input filter. Restart long-running processes or call
+`load_sql_context.cache_clear()` after editing context files.
+
+This layout enables eligible prefix reuse on GPT-5 Mini; it does not guarantee a
+cache hit or permanent retention. The complete context is still sent on every
+generation request. Check `usage.input_tokens_details.cached_tokens` in the
+printed API usage to measure actual reuse. See [OpenAI prompt caching](https://developers.openai.com/api/docs/guides/prompt-caching).
+SQL generation caps output at 3,000 tokens; an incomplete response is rejected.
+Reference clocks are available bind values, not implicit requested date filters.
+Evaluation cases distinguish all-time totals from explicitly requested seven-day
+counts; changing the reference clock alone must not narrow the population.
+
+Verify the five developer-reviewed examples against the live database:
+
+```sh
+python verify_examples.py --team-id fJ8Xoh --as-of 2026-08-12T00:00:00+00:00
+```
+
+Choose an existing TeamID from your database. This script runs only the curated
+example queries, never model-generated SQL. It uses a read-only consistent
+transaction, a five-second query deadline, and a 100-row result cap. Run
+`python verify_examples.py --inspect` for small aggregate diagnostics. Live
+results reflect the current development data and are not regression fixtures.
+
+Automated query-logic tests use an isolated in-memory SQLite database, the same
+SQL with only `%s` changed to `?`, and synthetic expected results. They exercise
+multi-team membership, inactive/deactivated athletes, ties, empty/unknown teams,
+and both boundaries of the seven-day window. These portable tests complement
+the real MySQL syntax/execution check; they do not claim full MySQL equivalence.
+Never load the synthetic fixture into `syp_dev`.
+
 ## Implementation roadmap
 
 1. **Input and flow (implemented):** CLI input, shared local validation, and the
@@ -129,9 +220,11 @@ with create_model_connector() as connector:
    generate an answer. Denials and clarification requests return early; zero
    rows return a fixed message without an answer-generation call. Stage failures
    propagate to the caller.
-2. **SQL generation:** Agree on schema context and trusted instructions, then
-   implement structured query/deny/clarify outcomes. Keep user text separate from
-   instructions and constrain unrelated requests and prompt-injection attempts.
+2. **SQL generation (implemented):** Saved full schema, domain rules, five
+   verified conditional examples, structured query/deny/clarify output, stable
+   cache prefix/key, usage reporting, and generation-only CLI. Confirm the two
+   remaining metric/population rules before treating the conditional examples as
+   default interpretations.
 3. **SQL validation and execution:** Parse and restrict generated SQL, use the
    existing read-only `mcp` user, and enforce query deadlines, row limits, and
    result-size limits. Add bounded error recovery and clear failure messages.
@@ -139,10 +232,11 @@ with create_model_connector() as connector:
    metadata, and implement grounded plain-English answers. Add model output and
    retry budgets, usage tracking, and end-to-end cases for errors and no data.
 
-The OpenAI SQL hooks currently raise `NotImplementedError` before an API request
-or SQL execution. This deliberately prevents the incomplete workflow from
-treating ordinary model output as executable SQL. The existing
-`generate_response()` provider test remains available.
+The `validate_sql`, `execute_sql`, result-preparation and answer-generation hooks
+still raise `NotImplementedError`. `process_request()` can generate a proposal,
+then stops at validation; `--generate-sql` deliberately returns the proposal
+without entering those hooks. The existing `generate_response()` provider smoke
+test remains available.
 
 Sensitive-data filtering and per-user authorization are out of scope for this
 class prototype, which uses junk development data. The read-only database account

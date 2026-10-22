@@ -5,7 +5,7 @@ from unittest.mock import patch
 from openai import OpenAIError
 from openai.types.responses import Response
 
-from ModelConnector import ModelConnector
+from ModelConnector import ModelConnector, SQLQuery
 from OpenAIModelConnector import DEFAULT_MODEL, OpenAIModelConnector
 from model_provider import create_model_connector
 from user_input import MAX_INPUT_CHARS, InputValidationError
@@ -117,10 +117,13 @@ class ModelProviderTests(unittest.TestCase):
         )
 
     @patch("OpenAIModelConnector.OpenAI")
-    def test_incomplete_sql_workflow_cannot_make_requests(self, client_class):
+    def test_incomplete_sql_workflow_stops_before_execution(self, client_class):
         with OpenAIModelConnector("test-key") as connector:
-            with self.assertRaisesRegex(NotImplementedError, "SQL generation"):
-                connector.process_request("Count records")
+            with patch.object(connector, "generate_sql", return_value=SQLQuery("SELECT COUNT(*) FROM Survey")):
+                with patch.object(connector, "execute_sql") as execute:
+                    with self.assertRaisesRegex(NotImplementedError, "SQL validation"):
+                        connector.process_request("Count records")
+            execute.assert_not_called()
         client_class.return_value.responses.create.assert_not_called()
 
     @patch("OpenAIModelConnector.OpenAI")

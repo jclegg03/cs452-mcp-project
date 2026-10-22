@@ -5,6 +5,7 @@ from contextlib import redirect_stdout
 from unittest.mock import patch
 
 from openai import OpenAIError
+from ModelConnector import ClarificationRequiredError, SQLQuery
 
 from main import main
 from user_input import MAX_INPUT_CHARS
@@ -89,6 +90,37 @@ class MainTests(unittest.TestCase):
                     with redirect_stdout(io.StringIO()):
                         self.assertEqual(main(["--interactive"]), code)
         self.load_dotenv.assert_not_called()
+        self.database.assert_not_called()
+        factory.assert_not_called()
+
+    @patch("main.create_model_connector")
+    def test_generation_only_does_not_open_database_or_execute_sql(self, factory):
+        connector = factory.return_value.__enter__.return_value
+        connector.generate_sql.return_value = SQLQuery("SELECT COUNT(*) FROM Survey")
+        connector.last_usage = None
+        output = io.StringIO()
+        with redirect_stdout(output):
+            self.assertEqual(main(["--generate-sql", "--prompt", "How many surveys?"]), 0)
+        self.assertIn('"executed": false', output.getvalue())
+        self.database.assert_not_called()
+        connector.execute_sql.assert_not_called()
+
+    @patch("main.create_model_connector")
+    def test_generation_clarification_is_a_normal_outcome(self, factory):
+        connector = factory.return_value.__enter__.return_value
+        connector.generate_sql.side_effect = ClarificationRequiredError("Which team?")
+        connector.last_usage = None
+        output = io.StringIO()
+        with redirect_stdout(output):
+            self.assertEqual(main(["--generate-sql", "--prompt", "How many athletes?"]), 0)
+        self.assertIn('"decision": "clarify"', output.getvalue())
+        self.assertIn("Which team?", output.getvalue())
+        self.database.assert_not_called()
+
+    @patch("main.create_model_connector")
+    def test_generation_validates_input_before_client_or_database(self, factory):
+        with redirect_stdout(io.StringIO()):
+            self.assertEqual(main(["--generate-sql", "--prompt", "SELECT * FROM Survey"]), 1)
         self.database.assert_not_called()
         factory.assert_not_called()
 

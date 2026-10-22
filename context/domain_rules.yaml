@@ -1,0 +1,32 @@
+format_version: 1
+database: syp_dev
+dialect: MySQL 9.5
+
+confirmed:
+  timestamp_convention: All application DATETIME values are stored as UTC.
+  database_session_timezone: "+00:00"
+  submission_record: Each Survey row is a recorded submission; SurveyList stores form definitions.
+  submission_time: Survey.SubmissionDate
+  athlete_identifier: Athlete.AthleteID; names and emails are unavailable in this database.
+  team_identifier: Team.TeamID; there is no Team.Name column.
+  membership_relation: Compliance links AthleteID and TeamID; one athlete may belong to multiple teams.
+
+prototype_defaults:
+  last_seven_days: Rolling 168 hours ending at the supplied reference_time_utc, inclusive start and exclusive end.
+  most_submissions: Return every athlete tied for the largest positive submission count.
+  no_submissions: No Survey rows for the athlete, across all survey types and dates unless the question specifies a range.
+  unknown_team: Do not treat a missing Team row as a known team with zero submissions.
+
+unconfirmed:
+  team_submission_metric: Ask whether to sum per-team Compliance counters or count Survey rows for current team athletes. Survey has no TeamID, so these metrics differ.
+  athlete_population: Ask whether enrolled/participating means Compliance.IsActive = 1 and Athlete.Deactivated IS NULL, or includes inactive/deactivated athletes.
+
+example_conditions:
+  - Examples involving team counters or active populations are conditional query demonstrations, not confirmation of the unconfirmed rules above.
+  - Ask for clarification before using an example with an unresolved interpretation, unless the user's question supplies that interpretation explicitly.
+
+limitations:
+  - Historical team attribution of a Survey cannot be recovered reliably from these columns alone.
+  - Compliance submission counters may differ from counts of Survey rows; do not equate them.
+  - Compliance.IsActive and Athlete.Deactivated are separate attributes.
+  - teamcompliancesummary has visible columns but no accessible definition; use base tables instead.

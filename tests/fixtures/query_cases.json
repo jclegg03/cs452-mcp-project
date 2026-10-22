@@ -1,0 +1,10 @@
+{
+  "reference_time_utc": "2026-10-22T00:00:00+00:00",
+  "cases": [
+    {"id": "team_submission_count", "expected": [{"TeamID": "TEAM-X", "SurveyCount": 7}]},
+    {"id": "team_athlete_count", "expected": [{"TeamID": "TEAM-X", "AthleteCount": 3}]},
+    {"id": "recent_submission_count", "expected": [{"SurveyCount": 6}]},
+    {"id": "most_submissions", "expected": [{"AthleteID": "a-one", "SurveyCount": 2}, {"AthleteID": "a-two", "SurveyCount": 2}]},
+    {"id": "no_submissions", "expected": [{"AthleteID": "a-zero"}]}
+  ]
+}

@@ -1,0 +1,164 @@
+{
+  "format_version": 1,
+  "database": "syp_dev",
+  "show_tables": [
+    "Administrator",
+    "Athlete",
+    "Coach",
+    "Coaches",
+    "Compliance",
+    "Feedback",
+    "OrgRegistrationCode",
+    "Organization",
+    "RegistrationCode",
+    "Survey",
+    "SurveyList",
+    "Team",
+    "TempCode",
+    "_prisma_migrations",
+    "teamcompliancesummary"
+  ],
+  "create_tables": {
+    "Administrator": "CREATE TABLE `Administrator` (\n  `AdminID` varchar(36) COLLATE utf8mb4_unicode_ci NOT NULL,\n  `RegistrationDate` datetime(3) NOT NULL,\n  `Deactivated` datetime DEFAULT NULL,\n  PRIMARY KEY (`AdminID`)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+    "Athlete": "CREATE TABLE `Athlete` (\n  `School` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,\n  `RegistrationDate` datetime(3) NOT NULL,\n  `AthleteID` varchar(36) COLLATE utf8mb4_unicode_ci NOT NULL,\n  `Deactivated` datetime DEFAULT NULL,\n  PRIMARY KEY (`AthleteID`)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+    "Coach": "CREATE TABLE `Coach` (\n  `CoachID` varchar(36) COLLATE utf8mb4_unicode_ci NOT NULL,\n  `RegistrationDate` datetime(3) NOT NULL,\n  `School` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,\n  `Deactivated` datetime DEFAULT NULL,\n  PRIMARY KEY (`CoachID`)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+    "Coaches": "CREATE TABLE `Coaches` (\n  `CoachID` varchar(36) COLLATE utf8mb4_unicode_ci NOT NULL,\n  `TeamID` varchar(6) COLLATE utf8mb4_unicode_ci NOT NULL,\n  PRIMARY KEY (`CoachID`,`TeamID`),\n  KEY `Coaches_ibfk_2` (`TeamID`),\n  CONSTRAINT `Coaches_ibfk_1` FOREIGN KEY (`CoachID`) REFERENCES `Coach` (`CoachID`),\n  CONSTRAINT `Coaches_ibfk_2` FOREIGN KEY (`TeamID`) REFERENCES `Team` (`TeamID`)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+    "Compliance": "CREATE TABLE `Compliance` (\n  `AthleteID` varchar(36) COLLATE utf8mb4_unicode_ci NOT NULL,\n  `TeamID` varchar(6) COLLATE utf8mb4_unicode_ci NOT NULL,\n  `NumDailyPossible` int NOT NULL,\n  `NumDailySubmitted` int NOT NULL,\n  `BackgroundSubmitted` tinyint NOT NULL,\n  `FinalSubmitted` tinyint NOT NULL,\n  `DailyAvailable` tinyint NOT NULL,\n  `IsActive` tinyint NOT NULL,\n  `NumWeeklyPossible` int NOT NULL DEFAULT '1',\n  `NumWeeklySubmitted` int NOT NULL DEFAULT '0',\n  `NumMonthlyPossible` int NOT NULL DEFAULT '1',\n  `NumMonthlySubmitted` int NOT NULL DEFAULT '0',\n  PRIMARY KEY (`TeamID`,`AthleteID`),\n  KEY `fk_compliance_athlete` (`AthleteID`),\n  CONSTRAINT `fk_compliance_athlete` FOREIGN KEY (`AthleteID`) REFERENCES `Athlete` (`AthleteID`),\n  CONSTRAINT `fk_compliance_team` FOREIGN KEY (`TeamID`) REFERENCES `Team` (`TeamID`)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+    "Feedback": "CREATE TABLE `Feedback` (\n  `TicketID` int NOT NULL AUTO_INCREMENT,\n  `Message` text COLLATE utf8mb4_unicode_ci NOT NULL,\n  `Submitted` datetime(3) NOT NULL,\n  `Resolved` tinyint NOT NULL DEFAULT '0',\n  PRIMARY KEY (`TicketID`)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+    "OrgRegistrationCode": "CREATE TABLE `OrgRegistrationCode` (\n  `Code` varchar(127) COLLATE utf8mb4_unicode_ci NOT NULL,\n  `Expires` datetime(3) NOT NULL,\n  `OrgID` varchar(36) COLLATE utf8mb4_unicode_ci NOT NULL,\n  PRIMARY KEY (`Code`),\n  KEY `OrgRegistrationCode_OrgID_fkey` (`OrgID`),\n  CONSTRAINT `OrgRegistrationCode_OrgID_fkey` FOREIGN KEY (`OrgID`) REFERENCES `Organization` (`OrgID`)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+    "Organization": "CREATE TABLE `Organization` (\n  `OrgID` varchar(36) COLLATE utf8mb4_unicode_ci NOT NULL,\n  `Name` varchar(128) COLLATE utf8mb4_unicode_ci NOT NULL,\n  `DatabaseName` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL,\n  PRIMARY KEY (`OrgID`),\n  UNIQUE KEY `DatabaseName` (`DatabaseName`)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+    "RegistrationCode": "CREATE TABLE `RegistrationCode` (\n  `Code` varchar(127) COLLATE utf8mb4_unicode_ci NOT NULL,\n  `Type` int NOT NULL,\n  `Expires` datetime(3) NOT NULL,\n  `TeamID` varchar(6) COLLATE utf8mb4_unicode_ci DEFAULT NULL,\n  PRIMARY KEY (`Code`),\n  KEY `fk_registration_code_team` (`TeamID`),\n  CONSTRAINT `fk_registration_code_team` FOREIGN KEY (`TeamID`) REFERENCES `Team` (`TeamID`)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+    "Survey": "CREATE TABLE `Survey` (\n  `SurveyData` json NOT NULL,\n  `SurveyID` bigint NOT NULL AUTO_INCREMENT,\n  `SubmissionDate` datetime(3) NOT NULL,\n  `SurveyType` int NOT NULL,\n  `AthleteID` varchar(36) COLLATE utf8mb4_unicode_ci NOT NULL,\n  `Duration` int unsigned DEFAULT NULL,\n  PRIMARY KEY (`SurveyID`),\n  KEY `fk_survey_athlete` (`AthleteID`),\n  CONSTRAINT `fk_survey_athlete` FOREIGN KEY (`AthleteID`) REFERENCES `Athlete` (`AthleteID`)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+    "SurveyList": "CREATE TABLE `SurveyList` (\n  `SurveyID` bigint NOT NULL AUTO_INCREMENT,\n  `SurveyName` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,\n  `SurveyHash` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL,\n  PRIMARY KEY (`SurveyID`),\n  UNIQUE KEY `SurveyName` (`SurveyName`),\n  UNIQUE KEY `SurveyHash` (`SurveyHash`)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+    "Team": "CREATE TABLE `Team` (\n  `TeamID` varchar(6) COLLATE utf8mb4_unicode_ci NOT NULL,\n  `Year` int NOT NULL,\n  `Sport` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL,\n  `Gender` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL,\n  `School` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,\n  `StartDate` datetime(3) NOT NULL,\n  `EndDate` datetime(3) NOT NULL,\n  `TimeZone` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL,\n  `CurrentReportPeriod` datetime(3) NOT NULL,\n  PRIMARY KEY (`TeamID`)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+    "TempCode": "CREATE TABLE `TempCode` (\n  `Token` varchar(36) COLLATE utf8mb4_unicode_ci NOT NULL,\n  `Expires` datetime(3) NOT NULL,\n  `Used` tinyint(1) NOT NULL DEFAULT '0',\n  PRIMARY KEY (`Token`)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+    "_prisma_migrations": "CREATE TABLE `_prisma_migrations` (\n  `id` varchar(36) COLLATE utf8mb4_unicode_ci NOT NULL,\n  `checksum` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL,\n  `finished_at` datetime(3) DEFAULT NULL,\n  `migration_name` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,\n  `logs` text COLLATE utf8mb4_unicode_ci,\n  `rolled_back_at` datetime(3) DEFAULT NULL,\n  `started_at` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),\n  `applied_steps_count` int unsigned NOT NULL DEFAULT '0',\n  PRIMARY KEY (`id`)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+  },
+  "unavailable_definitions": {
+    "teamcompliancesummary": {
+      "reason": "SHOW CREATE TABLE denied; full definition unavailable",
+      "columns": [
+        {
+          "Field": "TeamID",
+          "Type": "varchar(6)",
+          "Null": "NO",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "IsActive",
+          "Type": "int",
+          "Null": "NO",
+          "Key": "",
+          "Default": "0",
+          "Extra": ""
+        },
+        {
+          "Field": "School",
+          "Type": "varchar(255)",
+          "Null": "NO",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "Gender",
+          "Type": "varchar(32)",
+          "Null": "NO",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "Sport",
+          "Type": "varchar(64)",
+          "Null": "NO",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "AthletesEnrolled",
+          "Type": "bigint",
+          "Null": "NO",
+          "Key": "",
+          "Default": "0",
+          "Extra": ""
+        },
+        {
+          "Field": "BackgroundSubmitted",
+          "Type": "bigint",
+          "Null": "NO",
+          "Key": "",
+          "Default": "0",
+          "Extra": ""
+        },
+        {
+          "Field": "FinalSubmitted",
+          "Type": "bigint",
+          "Null": "NO",
+          "Key": "",
+          "Default": "0",
+          "Extra": ""
+        },
+        {
+          "Field": "TotalSubmitted",
+          "Type": "decimal(32,0)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "TotalPossible",
+          "Type": "decimal(32,0)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "MonthlySubmitted",
+          "Type": "decimal(32,0)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "MonthlyPossible",
+          "Type": "decimal(32,0)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "WeeklySubmitted",
+          "Type": "decimal(32,0)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "WeeklyPossible",
+          "Type": "decimal(32,0)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "NumDailySubmitted",
+          "Type": "bigint",
+          "Null": "NO",
+          "Key": "",
+          "Default": "0",
+          "Extra": ""
+        }
+      ]
+    }
+  }
+}

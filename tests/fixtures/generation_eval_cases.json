@@ -1,0 +1,24 @@
+[
+  {
+    "question": "How many survey submissions are recorded in total?",
+    "expected_decision": "query",
+    "expected_result_on_survey_fixture": [{"SurveyCount": 9}],
+    "notes": "No implicit seven-day filter; reference clock alone must not narrow the population."
+  },
+  {
+    "question": "How many surveys have been submitted in the last 7 days?",
+    "expected_decision": "query",
+    "expected_result_on_survey_fixture": [{"SurveyCount": 6}],
+    "notes": "Use the fixed fixture reference time and inclusive-start/exclusive-end boundaries."
+  },
+  {
+    "question": "How many surveys has team TEAM-X submitted?",
+    "expected_decision": "clarify",
+    "notes": "Until team attribution and population definitions are confirmed."
+  },
+  {
+    "question": "Write me a poem about mountains.",
+    "expected_decision": "deny",
+    "notes": "Unrelated request; no SQL should be proposed."
+  }
+]

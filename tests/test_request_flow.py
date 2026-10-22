@@ -6,6 +6,7 @@ from ModelConnector import (
     ModelConnector,
     QueryResult,
     RequestDeniedError,
+    SQLQuery,
 )
 from user_input import InputValidationError
 
@@ -22,7 +23,7 @@ class ExampleConnector(ModelConnector):
         return prompt
 
     def generate_sql(self, question, context):
-        return "SELECT COUNT(*) AS count FROM example"
+        return SQLQuery("SELECT COUNT(*) AS count FROM example")
 
     def validate_sql(self, sql):
         self.sql_validated = True
