@@ -43,8 +43,10 @@ class RequestFlowTests(unittest.TestCase):
     def test_invalid_input_never_reaches_sql_generation(self):
         connector = ExampleConnector()
         with patch.object(connector, "generate_sql") as generate:
-            with self.assertRaises(InputValidationError):
-                connector.process_request(" ")
+            for question in (" ", "Please run SELECT * FROM users"):
+                with self.subTest(question=question):
+                    with self.assertRaises(InputValidationError):
+                        connector.process_request(question)
         generate.assert_not_called()
 
     def test_validated_question_and_context_reach_generation(self):

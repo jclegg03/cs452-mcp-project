@@ -89,8 +89,23 @@ surrogates are rejected; tabs, line breaks, normal punctuation, and Unicode text
 are preserved. Only surrounding whitespace is removed. The connector applies the
 same checks to direct Python calls before making a model request.
 
-This character cap limits input size, not an exact token budget. Validation does
-not classify relevance or claim to detect prompt injection. User text remains
+The validator also rejects recognizable SQL statements and common injection
+fragments, even inside prose or code fences. Detection checks case-insensitively
+and handles block-comment obfuscation, MySQL executable comments, full-width
+characters, invisible formatting characters, and up to two percent-decoding
+passes. Only a detection copy is normalized; accepted input is never decoded or
+rewritten. Quotes, semicolons, and isolated words such as `select` or `update`
+are allowed when they do not form a recognized SQL pattern. Rejections ask the
+user to describe the question in plain English.
+
+This is a conservative heuristic: quoted SQL examples are also rejected, some
+SQL-shaped English can require rephrasing, and unrecognized or more heavily
+encoded SQL can evade it. It does not replace the planned generated-SQL validator
+or database permissions. See [OWASP's SQL injection prevention guidance](https://cheatsheetseries.owasp.org/cheatsheets/SQL_Injection_Prevention_Cheat_Sheet.html)
+for execution-layer defenses.
+
+The character cap limits input size, not an exact token budget. Validation does
+not classify relevance or detect arbitrary prompt injection. User text remains
 in the Responses API's `input`, separate from future trusted application
 instructions, following the [OpenAI prompt-injection guidance](https://developers.openai.com/api/docs/guides/agent-builder-safety).
 

@@ -53,7 +53,8 @@ class MainTests(unittest.TestCase):
 
     @patch("main.create_model_connector")
     def test_invalid_prompt_skips_credentials_database_and_model(self, factory):
-        for prompt in (" ", "x" * (MAX_INPUT_CHARS + 1), "question\x1b"):
+        for prompt in (" ", "x" * (MAX_INPUT_CHARS + 1), "question\x1b",
+                       "Count users; SELECT * FROM users"):
             with self.subTest(length=len(prompt)):
                 output = io.StringIO()
                 with redirect_stdout(output):

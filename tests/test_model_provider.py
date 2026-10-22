@@ -100,8 +100,10 @@ class ModelProviderTests(unittest.TestCase):
     @patch("OpenAIModelConnector.OpenAI")
     def test_input_limit_applies_to_direct_provider_calls(self, client_class):
         with OpenAIModelConnector("test-key") as connector:
-            with self.assertRaises(InputValidationError):
-                connector.generate_response("x" * (MAX_INPUT_CHARS + 1))
+            for question in ("x" * (MAX_INPUT_CHARS + 1), "SELECT * FROM users"):
+                with self.subTest(question=question[:40]):
+                    with self.assertRaises(InputValidationError):
+                        connector.generate_response(question)
         client_class.return_value.responses.create.assert_not_called()
 
     @patch("OpenAIModelConnector.OpenAI")
