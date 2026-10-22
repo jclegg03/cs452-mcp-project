@@ -1,4 +1,4 @@
-# Local MySQL connection
+# MySQL and model providers
 
 Use Python 3.10 or newer. Create a virtual environment and install the dependencies:
 
@@ -45,7 +45,45 @@ Use parameterized queries for values. Writes require `connection.commit()`;
 closing the context releases the connection and discards uncommitted changes.
 The driver options follow the [MySQL Connector/Python documentation](https://dev.mysql.com/doc/connector-python/en/connector-python-connectargs.html).
 
-Run connector tests without a running database:
+## OpenAI provider
+
+Configure the model provider in `.env`:
+
+```dotenv
+MODEL_PROVIDER=openai
+MODEL_API_KEY=your_openai_api_key
+MODEL_NAME=gpt-5-mini
+```
+
+`MODEL_PROVIDER=openai` selects `OpenAIModelConnector`, which extends the abstract
+`ModelConnector` interface. `MODEL_API_KEY` is required; `MODEL_NAME` defaults to
+`gpt-5-mini` when omitted. Unsupported providers and empty configuration values
+raise clear errors.
+
+To check the database and then send a prompt:
+
+```sh
+python main.py --prompt "Say hello in one sentence."
+```
+
+Running without `--prompt` only checks MySQL. The model request uses the official
+OpenAI SDK's [Responses API](https://developers.openai.com/api/reference/python)
+and returns its text output. Each call is an independent prompt; conversation
+history and database tools are not attached to the model yet.
+
+To use the provider directly, load the environment before calling the factory:
+
+```python
+from pathlib import Path
+from dotenv import load_dotenv
+from model_provider import create_model_connector
+
+load_dotenv(Path(".env"))
+with create_model_connector() as connector:
+    print(connector.generate_response("Say hello."))
+```
+
+Run connector tests without a running database or API requests:
 
 ```sh
 python -m unittest discover -s tests -v
