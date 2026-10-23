@@ -37,10 +37,16 @@ class DatabaseConnector:
             "database": unquote(parsed.path[1:]),
             "charset": "utf8mb4",
             "connection_timeout": 5,
+            "read_timeout": 10,
+            "write_timeout": 10,
             "autocommit": False,
             "time_zone": "+00:00",
         }
         self._connection = None
+
+    @property
+    def database_name(self) -> str:
+        return self._config["database"]
 
     def connect(self):
         """Return a live connection; the caller must commit any writes."""

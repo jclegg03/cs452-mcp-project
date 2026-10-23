@@ -106,7 +106,8 @@ class MainTests(unittest.TestCase):
         connector.execute_sql.assert_not_called()
 
     @patch("main.create_model_connector")
-    def test_generation_clarification_is_a_normal_outcome(self, factory):
+    @patch("builtins.input", side_effect=AssertionError("Scripted mode must not read input"))
+    def test_generation_clarification_is_a_normal_outcome(self, read_input, factory):
         connector = factory.return_value.__enter__.return_value
         connector.generate_sql.side_effect = ClarificationRequiredError("Which team?")
         connector.last_usage = None
@@ -116,6 +117,75 @@ class MainTests(unittest.TestCase):
         self.assertIn('"decision": "clarify"', output.getvalue())
         self.assertIn("Which team?", output.getvalue())
         self.database.assert_not_called()
+
+    @patch("main.create_model_connector")
+    @patch("builtins.input", side_effect=["How many surveys?", "Only active athletes."])
+    def test_interactive_clarification_resumes_instead_of_starting_a_new_request(self, read_input, factory):
+        connector = factory.return_value.__enter__.return_value
+        connector.last_usage = None
+        connector.generate_sql.side_effect = [ClarificationRequiredError("Which population?"), SQLQuery("SELECT COUNT(*) FROM Survey")]
+        output = io.StringIO()
+        with redirect_stdout(output):
+            self.assertEqual(main(["--generate-sql", "--interactive"]), 0)
+        first, second = connector.generate_sql.call_args_list
+        self.assertEqual(first.args[0], second.args[0])
+        self.assertEqual(first.kwargs["as_of"], second.kwargs["as_of"])
+        self.assertEqual(second.kwargs["clarifications"][0].answer, "Only active athletes.")
+        self.assertIn('"decision": "query"', output.getvalue())
+        self.assertIn('"requests": 2', output.getvalue())
+        self.database.assert_not_called()
+        connector.execute_sql.assert_not_called()
+
+    @patch("main.create_model_connector")
+    @patch("builtins.input", side_effect=["How many surveys?", " ", "SELECT * FROM Survey", "Active athletes."])
+    def test_invalid_clarification_is_reprompted_without_spending_an_api_call(self, read_input, factory):
+        connector = factory.return_value.__enter__.return_value
+        connector.last_usage = None
+        connector.generate_sql.side_effect = [ClarificationRequiredError("Which population?"), SQLQuery("SELECT 1")]
+        output = io.StringIO()
+        with redirect_stdout(output):
+            self.assertEqual(main(["--generate-sql", "--interactive"]), 0)
+        self.assertEqual(connector.generate_sql.call_count, 2)
+        self.assertEqual(read_input.call_count, 4)
+        self.assertEqual(output.getvalue().count("Invalid input:"), 2)
+
+    @patch("main.create_model_connector")
+    def test_clarification_can_be_cancelled_without_another_model_call(self, factory):
+        connector = factory.return_value.__enter__.return_value
+        connector.last_usage = None
+        for cancellation, expected in (("/cancel", 0), (EOFError, 0), (KeyboardInterrupt, 130)):
+            with self.subTest(cancellation=cancellation):
+                connector.generate_sql.reset_mock()
+                connector.generate_sql.side_effect = ClarificationRequiredError("Which population?")
+                output = io.StringIO()
+                with patch("builtins.input", side_effect=["How many surveys?", cancellation]):
+                    with redirect_stdout(output):
+                        self.assertEqual(main(["--generate-sql", "--interactive"]), expected)
+                connector.generate_sql.assert_called_once()
+                self.assertIn('"decision": "cancelled"', output.getvalue())
+        self.database.assert_not_called()
+
+    @patch("main.create_model_connector")
+    @patch("builtins.input", side_effect=["How many surveys?", " ", " ", " "])
+    def test_invalid_reply_retry_limit(self, read_input, factory):
+        connector = factory.return_value.__enter__.return_value
+        connector.last_usage = None
+        connector.generate_sql.side_effect = ClarificationRequiredError("Which population?")
+        with redirect_stdout(io.StringIO()):
+            self.assertEqual(main(["--generate-sql", "--interactive"]), 1)
+        connector.generate_sql.assert_called_once()
+
+    @patch("main.create_model_connector")
+    @patch("builtins.input", side_effect=["How many surveys?", "Active athletes.", "TEAM-X", "All time."])
+    def test_clarification_round_limit_stops_the_cli(self, read_input, factory):
+        connector = factory.return_value.__enter__.return_value
+        connector.last_usage = None
+        connector.generate_sql.side_effect = ClarificationRequiredError("Please be more specific.")
+        output = io.StringIO()
+        with redirect_stdout(output):
+            self.assertEqual(main(["--generate-sql", "--interactive"]), 1)
+        self.assertEqual(connector.generate_sql.call_count, 4)
+        self.assertIn('"decision": "clarification_limit"', output.getvalue())
 
     @patch("main.create_model_connector")
     def test_generation_validates_input_before_client_or_database(self, factory):

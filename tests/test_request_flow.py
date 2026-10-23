@@ -22,13 +22,13 @@ class ExampleConnector(ModelConnector):
     def _generate_response(self, prompt):
         return prompt
 
-    def generate_sql(self, question, context):
+    def generate_sql(self, question, context, *, as_of=None, clarifications=()):
         return SQLQuery("SELECT COUNT(*) AS count FROM example")
 
     def validate_sql(self, sql):
         self.sql_validated = True
 
-    def execute_sql(self, sql):
+    def execute_sql(self, sql, *, observe=None):
         if not self.sql_validated:
             raise AssertionError("SQL executed before validation")
         return self.result
@@ -54,7 +54,7 @@ class RequestFlowTests(unittest.TestCase):
         connector = ExampleConnector()
         with patch.object(connector, "generate_sql", wraps=connector.generate_sql) as generate:
             self.assertEqual(connector.process_request(" Count records? ", "schema"), "Found 3 records.")
-        generate.assert_called_once_with("Count records?", "schema")
+        generate.assert_called_once_with("Count records?", "schema", as_of=None, clarifications=())
 
     def test_denial_and_clarification_skip_execution(self):
         for error in (RequestDeniedError("Database questions only."),
@@ -63,7 +63,11 @@ class RequestFlowTests(unittest.TestCase):
                 connector = ExampleConnector()
                 with patch.object(connector, "generate_sql", side_effect=error):
                     with patch.object(connector, "execute_sql") as execute:
-                        self.assertEqual(connector.process_request("question"), str(error))
+                        if isinstance(error, ClarificationRequiredError):
+                            with self.assertRaises(ClarificationRequiredError):
+                                connector.process_request("question")
+                        else:
+                            self.assertEqual(connector.process_request("question"), str(error))
                 execute.assert_not_called()
 
     def test_sql_validation_failure_never_reaches_execution(self):

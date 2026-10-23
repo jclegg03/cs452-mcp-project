@@ -8,7 +8,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent
@@ -21,7 +21,7 @@ class SQLProposal(BaseModel):
     decision: Literal["query", "deny", "clarify"]
     sql: str | None
     parameters: list[str | int | float | bool | None]
-    message: str | None
+    message: str | None = Field(max_length=500)
 
     @model_validator(mode="after")
     def validate_decision(self):

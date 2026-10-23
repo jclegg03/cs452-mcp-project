@@ -117,12 +117,11 @@ class ModelProviderTests(unittest.TestCase):
         )
 
     @patch("OpenAIModelConnector.OpenAI")
-    def test_incomplete_sql_workflow_stops_before_execution(self, client_class):
+    def test_unsafe_generated_sql_stops_before_execution(self, client_class):
         with OpenAIModelConnector("test-key") as connector:
-            with patch.object(connector, "generate_sql", return_value=SQLQuery("SELECT COUNT(*) FROM Survey")):
+            with patch.object(connector, "generate_sql", return_value=SQLQuery("DELETE FROM Survey")):
                 with patch.object(connector, "execute_sql") as execute:
-                    with self.assertRaisesRegex(NotImplementedError, "SQL validation"):
-                        connector.process_request("Count records")
+                    self.assertIn("Only one SELECT", connector.process_request("Count records"))
             execute.assert_not_called()
         client_class.return_value.responses.create.assert_not_called()
 
