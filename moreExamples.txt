@@ -1,0 +1,78 @@
+1.
+    Which team has the most active athletes?
+    Do you mean teams athletes where Compliance.IsActive = 1 and Athlete.Deactivated IS NULL (only currently active, non\u2011deactivated members), or should the count include athletes regardless of Compliance.IsActive or Athlete.Deactivated? Please pick one.
+    It should only count ones where isactive is true and deactivated is null
+    WITH counts AS (
+    SELECT t.`TeamID`, COUNT(DISTINCT a.`AthleteID`) AS AthleteCount
+    FROM `Team` AS t
+    INNER JOIN `Compliance` AS c ON c.`TeamID` = t.`TeamID` AND c.`IsActive` = 1
+    INNER JOIN `Athlete` AS a ON a.`AthleteID` = c.`AthleteID` AND a.`Deactivated` IS NULL
+    GROUP BY t.`TeamID`
+    )
+    SELECT `TeamID`, AthleteCount
+    FROM counts
+    WHERE AthleteCount > 0 AND AthleteCount = (SELECT MAX(AthleteCount) FROM counts)
+    ORDER BY `TeamID`
+    LIMIT 100
+    Team fJ8Xoh has the most active athletes: 3 active, non‑deactivated athletes.
+
+Scope of this result: the count includes only athletes who are marked active in compliance and who are not deactivated. The query returned this single team with 3; no other team had a higher count. The results are complete (not limited).
+
+2. 
+    what is the average compliance for each team (numDailyTaken / numDailyPossible)?
+    Should the per-team averages include only current/active team members who are not deactivated, or should they include all enrollments (including inactive or deactivated athletes)?
+    It should include everyone regardless of their status.
+    Should a team's compliance be calculated as (SUM(NumDailySubmitted) / SUM(NumDailyPossible)) for the team, or as the average of each member's (NumDailySubmitted / NumDailyPossible) ratios?
+    I like the first option.
+    SELECT t.TeamID,
+       COALESCE(SUM(c.NumDailySubmitted), 0) AS TotalDailySubmitted,
+       COALESCE(SUM(c.NumDailyPossible), 0) AS TotalDailyPossible,
+       CASE WHEN SUM(c.NumDailyPossible) = 0 THEN NULL
+            ELSE SUM(c.NumDailySubmitted) / SUM(c.NumDailyPossible)
+       END AS DailyComplianceRatio
+    FROM `Team` AS t
+    LEFT JOIN `Compliance` AS c ON c.TeamID = t.TeamID
+    GROUP BY t.TeamID
+    ORDER BY t.TeamID
+    LIMIT 100
+    Team fJ8Xoh — 3/3 = 1.0000 (100.00%)
+    Team QZzHwk — 1/1 = 1.0000 (100.00%)
+
+    Explanation: each team’s compliance shown above is total daily submissions divided by total daily possible submissions for that team, using all enrollments regardless of status and with no date filter.
+
+3. 
+    How many surveys have been submitted in the last 7 days by any athlete?
+    SELECT COUNT(*) AS SurveyCount
+FROM Survey
+WHERE SubmissionDate >= %s AND SubmissionDate < %s
+
+  "parameters": [
+    "2026-10-16 16:47:03.228858",
+    "2026-10-23 16:47:03.228858"
+    ]
+    Direct answer: 0 surveys.
+
+    This counts all survey submissions by any athlete in the 7-day window from 2026-10-16 16:47:03.228858 UTC (inclusive) up to 2026-10-23 16:47:03.228858 UTC (exclusive). The query returned 0 and the result set is complete for that time range, so no submissions were recorded in that period.
+
+4. 
+    What is your name? What is your quest? What is the capital of Assyria?
+    I can only produce a read-only SQL query about the provided MySQL survey database. Your questions are not about the database\u2014if you want a query, please ask a specific database question (for example: a team or athlete metric, date range, or population rule).
+
+5. 
+    What are the administrator's ID's?
+    SELECT `AdminID`
+    FROM `Administrator`
+    ORDER BY `AdminID`
+    LIMIT 100
+    There are 7 administrator IDs (the administrator identifier values returned):
+
+    - 2a7ce925-936a-4985-9a86-689981b69225
+    - 46a4766f-5f90-43c5-94cc-260f362f4ff0
+    - 75df6719-8a77-4782-8a08-1d67e9670818
+    - 9f147ca7-b0c6-4e9d-9a3b-cc24bc35ff3f
+    - b5ef4488-2eaa-41c1-9bac-a2b91d0ea5d0
+    - c8bf0507-a02e-4333-b9a7-64267efe7107
+    - dce4ad07-e2e8-4883-b23e-5dfcf402c916
+
+    Scope: these are the administrator ID values returned by the query (ordered and limited to 100); the result set shown is complete.
+

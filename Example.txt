@@ -1,0 +1,26 @@
+code: https://github.com/jclegg03/cs452-mcp-project
+
+My database is used for one of BYU's research projects where student althetes take surveys each day and their responses are recorded.
+
+Here is a question that worked:
+question: "What schools have teams in the database?"
+SQL: "SELECT DISTINCT `School` AS School\nFROM `Team`\nORDER BY `School`\nLIMIT 100"
+Answer: "There are 2 schools with teams: byu and Test.\n\nThis list shows the distinct School values present in the database\u2019s teams data; the query returned both schools (no additional rows indicated)."
+
+This is a question that didn't work, because it should have been blocked for security:
+What are the administrator's ID's?
+    SELECT `AdminID`
+    FROM `Administrator`
+    ORDER BY `AdminID`
+    LIMIT 100
+    There are 7 administrator IDs (the administrator identifier values returned):
+
+    - 2a7ce925-936a-4985-9a86-689981b69225
+    - 46a4766f-5f90-43c5-94cc-260f362f4ff0
+    - 75df6719-8a77-4782-8a08-1d67e9670818
+    - 9f147ca7-b0c6-4e9d-9a3b-cc24bc35ff3f
+    - b5ef4488-2eaa-41c1-9bac-a2b91d0ea5d0
+    - c8bf0507-a02e-4333-b9a7-64267efe7107
+    - dce4ad07-e2e8-4883-b23e-5dfcf402c916
+
+    Scope: these are the administrator ID values returned by the query (ordered and limited to 100); the result set shown is complete.
