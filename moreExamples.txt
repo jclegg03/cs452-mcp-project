@@ -76,3 +76,22 @@ WHERE SubmissionDate >= %s AND SubmissionDate < %s
 
     Scope: these are the administrator ID values returned by the query (ordered and limited to 100); the result set shown is complete.
 
+6. (This example was done with 1 shot)
+    How many surveys have been submitted by each athlete? Include athletes on all teams regardless of if they are currently active or not.
+    SELECT
+    Athlete.AthleteID AS AthleteID,
+    COUNT(Survey.SurveyID) AS SurveyCount
+    FROM Athlete
+    LEFT JOIN Survey ON Survey.AthleteID = Athlete.AthleteID
+    GROUP BY Athlete.AthleteID
+    ORDER BY SurveyCount DESC, Athlete.AthleteID ASC
+    LIMIT 100
+    Direct answer: Four athletes are shown, and each has 2 survey submissions.
+
+    Results:
+    - Athlete 3f7bc6b4-26db-4907-833b-f7ca58048edb — 2 surveys
+    - Athlete 6eb473a0-2011-45bb-a2bd-21e6233bb43f — 2 surveys
+    - Athlete 72b16c35-9b32-44e4-8c49-4a31b696ac71 — 2 surveys
+    - Athlete 8fcbeaa4-7e2c-45eb-8a9e-56a58c265fd9 — 2 surveys
+
+    Scope: these counts are total survey submissions per athlete across all teams (including athletes who are not currently active) and across all time. The returned results are complete (no additional rows were omitted).
