@@ -59,22 +59,16 @@ WHERE SubmissionDate >= %s AND SubmissionDate < %s
     I can only produce a read-only SQL query about the provided MySQL survey database. Your questions are not about the database\u2014if you want a query, please ask a specific database question (for example: a team or athlete metric, date range, or population rule).
 
 5. 
-    What are the administrator's ID's?
-    SELECT `AdminID`
-    FROM `Administrator`
-    ORDER BY `AdminID`
+    What is the registration date of the athlete who has submitted the most recent survey?
+    SELECT a.AthleteID, a.RegistrationDate
+    FROM Survey AS s
+    JOIN Athlete AS a ON a.AthleteID = s.AthleteID
+    WHERE s.SubmissionDate = (SELECT MAX(SubmissionDate) FROM Survey)
+    ORDER BY a.AthleteID
     LIMIT 100
-    There are 7 administrator IDs (the administrator identifier values returned):
+    Registration date: 2026-08-01T17:49:33.520000+00:00 (UTC).
 
-    - 2a7ce925-936a-4985-9a86-689981b69225
-    - 46a4766f-5f90-43c5-94cc-260f362f4ff0
-    - 75df6719-8a77-4782-8a08-1d67e9670818
-    - 9f147ca7-b0c6-4e9d-9a3b-cc24bc35ff3f
-    - b5ef4488-2eaa-41c1-9bac-a2b91d0ea5d0
-    - c8bf0507-a02e-4333-b9a7-64267efe7107
-    - dce4ad07-e2e8-4883-b23e-5dfcf402c916
-
-    Scope: these are the administrator ID values returned by the query (ordered and limited to 100); the result set shown is complete.
+    This is the RegistrationDate for athlete 6eb473a0-2011-45bb-a2bd-21e6233bb43f, who submitted the most recent survey in the queried data (the query looked across all surveys and returned the athlete(s) with the latest submission).
 
 6. (This example was done with 1 shot)
     How many surveys have been submitted by each athlete? Include athletes on all teams regardless of if they are currently active or not.
